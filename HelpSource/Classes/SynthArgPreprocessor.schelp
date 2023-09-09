@@ -1,0 +1,82 @@
+TITLE:: SynthArgPreprocessor
+summary:: Implements an alternate syntax for SynthDef controls
+categories:: Language
+
+
+DESCRIPTION::
+SynthArgPreprocessor implements an alternate syntax for SynthDef control inputs, which addresses some problems with the standard ways of defining them (SynthDef function arguments, or NamedControl).
+
+Within a function, SynthDef controls may be defined as follows:
+
+definitionlist::
+## code::## name;:: || Normal control rate, assuming default = 0.
+## code::## name = default;:: || Normal control rate, with default.
+## code::## name = default: t;:: || Trigger rate (also, code::a:: and code::i:: are supported).
+## code::## name = default: k, 0.2;:: || Normal control rate, with default and fixed lag. (Expression lag is also supported.)
+## code::## name = default: k, 0.2, [0, 1, 4];:: || Normal control rate, with default, fixed lag, and spec.
+::
+
+Names should be literal identifiers. Default values, lags and ControlSpecs may be expressions. In particular, defaults may be arrays calculated by expressions (as in NamedControl).
+
+Once installed, this class will evaluate in the interpreter's link::Classes/Interpreter#-preProcessor:: and automatically convert the new syntax into sclang code.
+
+note:: Almost all methods of this class are private. Do not try to use them on your own. ::
+
+
+CLASSMETHODS::
+
+METHOD:: install
+Installs SynthArgPreprocessor into the interpreter's preprocessor. This class does not install itself by default (because, in case of bugs, you may want to use sclang without extra syntax manipulation).
+
+To begin using this SynthDef control syntax, run:
+
+code::
+SynthArgPreprocessor.install;
+::
+
+There is currently no way to remove this preprocessor entirely. But, you can disable it (see below).
+
+METHOD:: enabled
+A Boolean flag indicating whether the preprocessor should take effect or not. (Note: code::.install:: sets the flag to true automatically.)
+
+
+EXAMPLES::
+
+code::
+SynthArgPreprocessor.install;
+
+s.boot;
+
+(
+a = {
+	##freq = 440;
+	##amp = 0.1;
+	SinOsc.ar(freq, 0, amp).dup
+}.play;
+)
+
+a.set(\freq, 220, \amp, 0.8);
+
+a.release;
+
+SynthArgPreprocessor.enabled = false;
+
+(
+a = {
+	##freq = 440;
+	##amp = 0.1;
+	SinOsc.ar(freq, 0, amp).dup
+}.play;
+)
+
+// prints:
+ERROR: syntax error, unexpected '#', expecting NAME or CLASSNAME or WHILE or '['
+  in interpreted text
+  line 3 char 3:
+
+  	##freq = 440;
+    ^
+  	##amp = 0.1;
+-----------------------------------
+ERROR: Command line parse failed
+::
