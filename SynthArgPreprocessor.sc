@@ -324,6 +324,9 @@ SynthArgPreprocessor {
 				{ |ch| ":;".includes(ch).not }
 			);
 			stream.rewind(1);
+		} {
+			stream.rewind(1);
+			this.parseSpaces(stream);
 		};
 		if(stream.peek == $;) {
 			stream.next;
