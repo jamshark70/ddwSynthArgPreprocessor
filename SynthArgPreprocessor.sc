@@ -447,7 +447,7 @@ SynthArgPreprocessor {
 			ch.notNil and: { ch != delimiter }
 		} {
 			if(ch == $\\) {
-				out = out ++ stream.next;
+				out = out ++ ch ++ stream.next;
 			} {
 				out = out ++ ch;
 			}
