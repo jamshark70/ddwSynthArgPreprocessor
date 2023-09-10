@@ -2,7 +2,7 @@
 
 SynthArgPreprocessor {
 	classvar closeBrackets;
-	classvar <>enabled = false;
+	classvar <enabled = false;
 	classvar notInstalled = true;
 
 	*initClass {
@@ -24,6 +24,14 @@ SynthArgPreprocessor {
 			notInstalled = false;
 		};
 		enabled = true;
+	}
+
+	*enabled_ { |bool(true)|
+		if(bool and: { notInstalled }) {
+			this.install;
+		} {
+			enabled = bool;
+		}
 	}
 
 	// top level: skip over irrelevant syntactic units
