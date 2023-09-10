@@ -207,6 +207,7 @@ SynthArgPreprocessor {
 
 		var ch, unit, out;
 		var firstNonVar, i, ordinal;
+		var str;
 
 		// skip spaces: open brace is consumed so 'next' should be the first space or other
 		preSpace = this.parseSpaces(stream);
@@ -227,28 +228,38 @@ SynthArgPreprocessor {
 			++ this.parseElement(stream, stream.next, { |ch| ch != $; })
 			++ ";"
 		}
-		{ stream.rewind(1) };  // didn't find arg block: back up one
+		{ stream.rewind(2) };  // didn't find arg block: back up to one char before next bit
 
 		// main loop: either ## spec or free text
 		unit = CollStream.new;
+		str = stream.collection;
 		while {
 			ch = stream.next;
 			ch.notNil and: { ch != $} }
 		} {
 			case
-			{ ch == $# } {
-				ch = stream.next;
-				if(ch == $#) {
-					if(unit.collection.size > 0) {
-						units = units.add(unit.collection);
-					};
-					unit = this.parseControl(stream, controlDict);
-					units = units.add(unit);
-					controlDict.put(unit[\name], unit);
-					unit = CollStream.new;
-				} {
-					unit << $# << ch;
+			{
+				// optimize: don't do regexp if there's no possibility of matching
+				"c#".includes(stream.peek) and: {
+					// regexp: either ##, or 'ctl alphanum' followed by either = or :
+					str.findRegexpAt(
+						"(\\#\\#|ctl[\\s]+[A-Za-z0-9_]+([\\s]*=|:))",
+						stream.pos
+					).notNil
+				}
+			} {
+				ch = stream.next;  // either # or c
+				stream.next;  // # or t
+				if(ch == $c) {
+					stream.next;  // l
 				};
+				if(unit.collection.size > 0) {
+					units = units.add(unit.collection);
+				};
+				unit = this.parseControl(stream, controlDict);
+				units = units.add(unit);
+				controlDict.put(unit[\name], unit);
+				unit = CollStream.new;
 			}
 			{ unit << ch };
 		};

@@ -16,11 +16,15 @@ definitionlist::
 ## code::## name = default: k, 0.2, [0, 1, 4];:: || Normal control rate, with default, fixed lag, and spec.
 ::
 
+The keyword code::ctl:: may be used in place of the double-hash token.
+
 Names should be literal identifiers. Default values, lags and ControlSpecs may be expressions. In particular, defaults may be arrays calculated by expressions (as in NamedControl).
 
 Once installed, this class will evaluate in the interpreter's link::Classes/Interpreter#-preProcessor:: and automatically convert the new syntax into sclang code.
 
 note:: Almost all methods of this class are private. Do not try to use them on your own. ::
+
+warning:: The code::ctl:: keyword may be inappropriately matched if it appears in a binary-operator expression such as code::ctl max: k:: or code::myObject.getctl max: k::. This will be interpreted as a control named code::max:: whose rate is code::k::. In such cases, use method-call syntax -- code::ctl.max(k):: -- or functional notation -- code::max(ctl, k)::. ::
 
 
 CLASSMETHODS::
