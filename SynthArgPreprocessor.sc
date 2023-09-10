@@ -502,6 +502,7 @@ SynthArgPreprocessor {
 		var audio, ac;
 		var control, cc;
 		var lagcontrol, lc;
+		var initcontrol, ic;
 		var trigcontrol, tc;
 		var defaults;
 		var which = Array(this.size);
@@ -528,6 +529,10 @@ SynthArgPreprocessor {
 				trigcontrol = trigcontrol.add(ctl);
 				which = which.add(3);
 			}
+			{ \ir } {
+				initcontrol = initcontrol.add(ctl);
+				which = which.add(4);
+			};
 		};
 
 		if(audio.notNil) {
@@ -559,9 +564,15 @@ SynthArgPreprocessor {
 			.kr(defaults.flat)
 			.asArray.reshapeLike(defaults);
 		};
+		if(initcontrol.notNil) {
+			defaults = initcontrol.synthArgPPDefaults;
+			ic = Control.names(initcontrol.synthArgPPNames)
+			.ir(defaults.flat)
+			.asArray.reshapeLike(defaults);
+		};
 
-		arrays = [ac, cc, lc, tc];
-		indices = Array.fill(4, 0);
+		arrays = [ac, cc, lc, tc, ic];
+		indices = Array.fill(5, 0);
 		^this.collect { |ctl, i|
 			var one = arrays[which[i]] .at( indices[which[i]] );
 			indices[which[i]] = indices[which[i]] + 1;
