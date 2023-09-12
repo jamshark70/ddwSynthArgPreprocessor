@@ -243,7 +243,7 @@ SynthArgPreprocessor {
 				"c#".includes(stream.peek) and: {
 					// regexp: either ##, or 'ctl alphanum' followed by either = or :
 					str.findRegexpAt(
-						"(\\#\\#|ctl[\\s]+[A-Za-z0-9_]+([\\s]*=|:))",
+						"(\\#\\#|ctl[\\s]+[A-Za-z0-9_]+([\\s]*=|:|[\\s]*;))",
 						stream.pos
 					).notNil
 				}
