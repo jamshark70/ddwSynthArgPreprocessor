@@ -238,6 +238,7 @@ SynthArgPreprocessor {
 			ch.notNil and: { ch != $} }
 		} {
 			case
+			// control input syntax
 			{
 				// optimize: don't do regexp if there's no possibility of matching
 				"c#".includes(stream.peek) and: {
@@ -259,6 +260,12 @@ SynthArgPreprocessor {
 				unit = this.parseControl(stream, controlDict);
 				units = units.add(unit);
 				controlDict.put(unit[\name], unit);
+				unit = CollStream.new;
+			}
+			// synthdef function may contain a function
+			{ ch == ${ } {
+				units = units.add(unit.collection);
+				units = units.add(this.parseFunction(stream, argSpecRef));
 				unit = CollStream.new;
 			}
 			{ unit << ch };
@@ -556,14 +563,18 @@ SynthArgPreprocessor {
 
 		if(audio.notNil) {
 			defaults = audio.synthArgPPDefaults;
-			ac = AudioControl.names(audio.synthArgPPNames)
-			.ar(defaults.flat)
+			ac = AudioControl.arStructured(
+				audio.synthArgPPNames,
+				defaults
+			)
 			.asArray.reshapeLike(defaults);  // needed?
 		};
 		if(control.notNil) {
 			defaults = control.synthArgPPDefaults;
-			cc = Control.names(control.synthArgPPNames)
-			.kr(defaults.flat)
+			cc = Control.krStructured(
+				control.synthArgPPNames,
+				defaults
+			)
 			.asArray.reshapeLike(defaults);
 			control.do { |ctl, i|
 				if(ctl[3].notNil) {
@@ -573,20 +584,27 @@ SynthArgPreprocessor {
 		};
 		if(lagcontrol.notNil) {
 			defaults = lagcontrol.synthArgPPDefaults;
-			lc = LagControl.names(lagcontrol.synthArgPPNames)
-			.kr(defaults.flat, lagcontrol.synthArgPPDefaults(3).flat)
+			lc = LagControl.krStructured(
+				lagcontrol.synthArgPPNames,
+				defaults,
+				lagcontrol.synthArgPPDefaults(3)
+			)
 			.asArray.reshapeLike(defaults);
 		};
 		if(trigcontrol.notNil) {
 			defaults = trigcontrol.synthArgPPDefaults;
-			lc = LagControl.names(trigcontrol.synthArgPPNames)
-			.kr(defaults.flat)
+			tc = TrigControl.krStructured(
+				trigcontrol.synthArgPPNames,
+				defaults
+			)
 			.asArray.reshapeLike(defaults);
 		};
 		if(initcontrol.notNil) {
 			defaults = initcontrol.synthArgPPDefaults;
-			ic = Control.names(initcontrol.synthArgPPNames)
-			.ir(defaults.flat)
+			ic = Control.irStructured(
+				initcontrol.synthArgPPNames,
+				defaults
+			)
 			.asArray.reshapeLike(defaults);
 		};
 
@@ -601,21 +619,148 @@ SynthArgPreprocessor {
 
 	synthArgPPNames {
 		^this.collect { |ctl|
-			if(ctl[1].size > 1) {
-				Array.fill(ctl[1].size, '?').put(0, ctl[0])
-			} {
-				ctl[0]
-			}
+			ctl[0]
 		}.flat
 	}
 
 	synthArgPPDefaults { |index = 1|
 		^this.collect { |ctl|
 			if(ctl[index].size != ctl[1].size) {
-				ctl[index].wrapExtend(ctl[1].size)
+				ctl[index].asArray.wrapExtend(ctl[1].size)
 			} {
 				ctl[index]
 			}
 		}
+	}
+}
+
++ Control {
+	*krStructured { |names, values|
+		^this.newStructured(\control, names, values)
+	}
+
+	*irStructured { |names, values|
+		^this.newStructured(\scalar, names, values)
+	}
+
+	*newStructured { |rate, names, values|
+		var count = 0;
+		var synthDef = UGen.buildSynthDef;
+		var index = synthDef.controlIndex;
+		names = names.asArray;
+		names.do { |name, i|
+			synthDef.addControlName(
+				ControlName(name, index + count, rate,
+					values[i], synthDef.allControlNames.size)
+			);
+			count = count + max(1, values[i].size);
+		};
+		^this.new1Structured(rate, index, *values)
+	}
+
+	*new1Structured { arg rate ... args;
+		if (rate.isKindOf(Symbol).not) { Error("rate must be Symbol.").throw };
+		^super.new.rate_(rate).addToSynth.initStructured( *args )
+	}
+
+	initStructured { arg index ... argValues;
+		var ctlNames, lastControl;
+		values = argValues.flat;
+		if (synthDef.notNil) {
+			specialIndex = synthDef.controls.size;
+			synthDef.controls = synthDef.controls.addAll(values);
+			ctlNames = synthDef.controlNames;
+			synthDef.controlIndex = synthDef.controlIndex + values.size;
+		};
+		^this.initOutputs(values.size, rate)
+	}
+}
+
++ AudioControl {
+	*arStructured { |names, values|
+		var count = 0;
+		var synthDef = UGen.buildSynthDef;
+		var index = synthDef.controlIndex;
+		names = names.asArray;
+		names.do { |name, i|
+			synthDef.addControlName(
+				ControlName(name, index + count, 'audio',
+					values[i], synthDef.allControlNames.size)
+			);
+			count = count + max(1, values[i].size);
+		};
+		^this.new1Structured(\audio, index, *values)
+	}
+}
+
+// TrigControl inherits from Control
+
+// todo: LagControl needs to partition into 16s
+// but what if an arrayed default crosses a 16x boundary?
+// this is untested as yet, but I want to get the other fixes out
+
++ LagControl {
+	// I'll assume one lag per control *name*
+	// it's going to get too messy otherwise
+	// In the preprocessor, that's:
+	// ## name = [1, 2, 3]: k 0.1
+	// and NOT ## name = [1, 2, 3]: k [0.1, 0.2, 0.3]
+	*krStructured { arg names, values, lags;
+		var partitions = Array(4).add(Array.new), count = 0, i = 0;
+		var totalSize = 0;
+		var outputs;
+
+		var synthDef = UGen.buildSynthDef;
+		var index = synthDef.controlIndex;
+		names = names.asArray;
+		names.do { |name, i|
+			synthDef.addControlName(
+				ControlName(name, index + count, 'control',
+					values[i], synthDef.allControlNames.size)
+			);
+			count = count + max(1, values[i].size);
+		};
+
+		while { i < names.size } {
+			count = count + values[i].size;
+			totalSize = totalSize + values[i].size;
+			if(count >= 16) {
+				partitions = partitions.add(Array.new);
+				count = values[i].size;
+			};
+			partitions.putLast(partitions.last.add(names[i]));
+			i = i + 1;
+		};
+
+		if (lags.isNumber) {
+			lags = lags ! values.size
+		} {
+			lags = lags.asArray;
+		};
+
+		if (values.size != lags.size, {
+			"LagControl values.size != lags.size".error;
+			^nil
+		});
+
+		outputs = [];
+		i = 0;
+		partitions.do { |part|
+			var subval = Array(part.size);
+			var sublag = Array(part.size);
+			part.do {
+				subval = subval.add(values[i]);
+				if(values[i].size > 0) {
+					sublag = sublag.add(lags[i].asArray.wrapExtend(values[i].size));
+				} {
+					sublag = sublag.add(lags[i]);
+				};
+				i = i + 1;
+			};
+			// unfinished: this concatenated values-lags style
+			// will not work here
+			outputs = outputs ++ this.new1Structured(\control, subval ++ sublag);
+		};
+		^outputs
 	}
 }
