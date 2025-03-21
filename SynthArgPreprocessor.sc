@@ -209,6 +209,10 @@ SynthArgPreprocessor {
 		var firstNonVar, i, ordinal;
 		var str;
 
+		// {} can crash the preprocessor somewhere below: trap it
+		// parent caller will add the closing brace
+		if(stream.peek == $} ) { ^"{" };
+
 		// skip spaces: open brace is consumed so 'next' should be the first space or other
 		preSpace = this.parseSpaces(stream);
 		if(stream.peek.isNil) { ^"{" ++ preSpace };  // probably syntax error later
@@ -460,9 +464,15 @@ SynthArgPreprocessor {
 			Error("Incorrectly entered parseBrackets with '%'".format(openBracket))
 			.throw;
 		};
-		^openBracket
-		++ this.parseElement(stream, stream.next, { |ch| ch != closeBracket })
-		++ closeBracket;
+		if(stream.peek == closeBracket) {
+			// empty brackets (not even a space)
+			// I don't know why the caller adds closeBracket, but it does
+			^openBracket // ++ closeBracket
+		} {
+			^openBracket
+			++ this.parseElement(stream, stream.next, { |ch| ch != closeBracket })
+			++ closeBracket;
+		}
 	}
 
 	*parseString { |stream, delimiter|
