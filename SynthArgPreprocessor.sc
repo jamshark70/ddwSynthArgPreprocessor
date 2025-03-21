@@ -549,10 +549,9 @@ SynthArgPreprocessor {
 			switch(ctl[2])
 			{ \kr } {
 				if(ctl[3].isNumber and: { ctl[3] != 0 }) {
-					Error("Currently LagControl is not supported in the SynthArgPreprocessor").throw;
 					// fixed numeric lag: can use LagControl
-					// lagcontrol = lagcontrol.add(ctl);
-					// which = which.add(2);
+					lagcontrol = lagcontrol.add(ctl);
+					which = which.add(2);
 				} {
 					control = control.add(ctl);
 					which = which.add(1);
@@ -721,6 +720,7 @@ SynthArgPreprocessor {
 		var totalSize = 0;
 		var outputs;
 
+		// adding control names: cribbed from Control *newStructured
 		var synthDef = UGen.buildSynthDef;
 		var index = synthDef.controlIndex;
 		names = names.asArray;
@@ -770,8 +770,27 @@ SynthArgPreprocessor {
 			};
 			// unfinished: this concatenated values-lags style
 			// will not work here
-			outputs = outputs ++ this.new1Structured(\control, subval ++ sublag);
+			outputs = outputs ++ this.new1Structured(\control, index, subval, sublag);
+			index = index + part.size;
 		};
 		^outputs
+	}
+
+	*new1Structured { |rate, index, values, lags|
+		if (rate.isKindOf(Symbol).not) { Error("rate must be Symbol.").throw };
+		^super.new.rate_(rate).addToSynth.initStructured(index, values, lags)
+	}
+
+	initStructured { arg index, argValues, argLags;
+		var ctlNames, lastControl;
+		values = argValues.flat;
+		inputs = argLags.flat;
+		if (synthDef.notNil) {
+			specialIndex = synthDef.controls.size;
+			synthDef.controls = synthDef.controls.addAll(values);
+			ctlNames = synthDef.controlNames;
+			synthDef.controlIndex = synthDef.controlIndex + values.size;
+		};
+		^this.initOutputs(values.size, rate)
 	}
 }
