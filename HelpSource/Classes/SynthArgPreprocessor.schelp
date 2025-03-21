@@ -12,8 +12,13 @@ definitionlist::
 ## code::## name;:: || Normal control rate, assuming default = 0.
 ## code::## name = default;:: || Normal control rate, with default.
 ## code::## name = default: t;:: || Trigger rate (also, code::a:: and code::i:: are supported).
-## code::## name = default: k, 0.2;:: || Normal control rate, with default and fixed lag. (Expression lag is also supported.)
-## code::## name = default: k, 0.2, [0, 1, 4];:: || Normal control rate, with default, fixed lag, and spec.
+## code::## name = default: k, [0, 1, 4];:: || Normal control rate, with default and spec.
+::
+
+warning::
+definitionlist::
+## code::## name = default: k, 0.2;:: || LagControls are currently not supported here.
+::
 ::
 
 The keyword code::ctl:: may be used in place of the double-hash token.

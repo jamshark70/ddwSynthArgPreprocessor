@@ -549,9 +549,10 @@ SynthArgPreprocessor {
 			switch(ctl[2])
 			{ \kr } {
 				if(ctl[3].isNumber and: { ctl[3] != 0 }) {
+					Error("Currently LagControl is not supported in the SynthArgPreprocessor").throw;
 					// fixed numeric lag: can use LagControl
-					lagcontrol = lagcontrol.add(ctl);
-					which = which.add(2);
+					// lagcontrol = lagcontrol.add(ctl);
+					// which = which.add(2);
 				} {
 					control = control.add(ctl);
 					which = which.add(1);
